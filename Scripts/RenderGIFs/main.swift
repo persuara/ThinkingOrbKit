@@ -16,6 +16,11 @@
 //  Build and run with `Scripts/render-gifs.sh` (this file is compiled together
 //  with the package sources, which is why it can use their internal API).
 //
+//  Reproducibility: the GEOMETRY is exact (the test suite pins it), but the
+//  system rasteriser's anti-aliasing is not bit-stable — regenerating gives GIFs
+//  that look identical but differ in a few hundred edge pixels by a few gray
+//  levels (measured: at most 9/255), so the files will not be byte-identical.
+//
 
 import AppKit
 import ImageIO
