@@ -10,6 +10,26 @@ verified against its own output (see [Testing](#testing)).
 
 **Requires** iOS 15+ / macOS 12+, Swift 6 toolchain.
 
+<table>
+  <tr>
+    <td align="center"><img src="docs/gifs/working.gif" width="192" alt="working: particles on tilted orbits"><br><code>.working</code></td>
+    <td align="center"><img src="docs/gifs/searching.gif" width="192" alt="searching: a scan meridian sweeps a dotted globe"><br><code>.searching</code></td>
+    <td align="center"><img src="docs/gifs/solving.gif" width="192" alt="solving: bands scramble in quarter turns, then click back"><br><code>.solving</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/gifs/listening.gif" width="192" alt="listening: a waveform rolls through latitude rings"><br><code>.listening</code></td>
+    <td align="center"><img src="docs/gifs/connecting.gif" width="192" alt="connecting: a constellation wires itself"><br><code>.connecting</code></td>
+    <td align="center"><img src="docs/gifs/weaving.gif" width="192" alt="weaving: three strands plait around the sphere"><br><code>.weaving</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/gifs/composing.gif" width="192" alt="composing: an undulating multi-band sash"><br><code>.composing</code></td>
+    <td align="center"><img src="docs/gifs/breathing.gif" width="192" alt="breathing: a face-on ring slowly morphing"><br><code>.breathing</code></td>
+    <td align="center"><img src="docs/gifs/shaping.gif" width="192" alt="shaping: a dotted outline morphs circle → triangle → square"><br><code>.shaping</code></td>
+  </tr>
+</table>
+
+<sub>Each preview shows the two hand-tuned sizes side by side — <code>.px64</code> on the left, <code>.px20</code> on the right. Rendered straight from the engine; regenerate with <code>Scripts/render-gifs.sh</code>.</sub>
+
 ## Use it
 
 ```swift
