@@ -126,4 +126,4 @@ The engine (`Sources/ThinkingOrbKit/Engine`) is internal on purpose. Only
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Original work © 2026 Jakub Antalik; Swift port © 2026 AmirHossein EramAbadi.
+MIT — see [LICENSE](LICENSE). Original work © 2026 Jakub Antalik; Swift port © 2026 AmirHossein EramAbadi ( persuara ).
