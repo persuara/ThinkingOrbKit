@@ -4,7 +4,7 @@ Dotted, depth-shaded 3D "thinking" indicators for SwiftUI — nine hand-tuned
 animations, drawn with a `Canvas` inside a `TimelineView`. No assets, no
 dependencies.
 
-A Swift port of [thinking-orbs](https://orbs.jakubantalik.com) by Jakub Antalik
+A Swift port of [thinking-orbs](https://github.com/Jakubantalik/thinking-orbs) by Jakub Antalik
 (MIT). The geometry engine is a line-for-line port of the TypeScript one and is
 verified against its own output (see [Testing](#testing)).
 
