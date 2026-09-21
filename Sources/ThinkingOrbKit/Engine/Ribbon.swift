@@ -110,7 +110,7 @@ import simd
 ///     white  = 0.52 − 0.44·depth + 0.18·edge
 ///     alpha  = 0.4 + 0.6·depth
 ///   Ghost sphere: `fibDir` dots, radius 0.8·rs, white 0.78, alpha 0.1 + 0.22·depth.
-func frameRibbon(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
+func frameRibbon(size: Double, time t: Double, options o: ModeOpts) -> RawFrame {
     let R = (size / 2) * 0.78
     // spin scales the 3D tumble; spin=0 freezes the band's orientation,
     // leaving only the traveling undulation
@@ -183,5 +183,5 @@ func frameRibbon(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame 
                 ))
         }
     }
-    return finalizeFrame(dots: dots, rMin: o[.rMin])
+    return RawFrame(dots: dots, rMin: o[.rMin])
 }
