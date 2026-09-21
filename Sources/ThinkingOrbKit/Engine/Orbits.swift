@@ -67,7 +67,7 @@ import simd
 ///   particle: r = (partR + partRDepth·depth)·rs   white = 0.3 − 0.22·depth
 ///   (`rs` = radiusScale, see Core.swift.) Near particles are bigger AND darker
 ///   (white 0.08); far ones smaller and lighter (0.30) — the depth cue.
-func frameOrbits(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
+func frameOrbits(size: Double, time t: Double, options o: ModeOpts) -> RawFrame {
     let R = (size / 2) * 0.82
     // whole cluster: slow yaw (0.12 rad per unit t) and a fixed 0.3 rad tilt
     let pt = Projector(yaw: t * 0.12, tilt: 0.3, center: SIMD2(repeating: size / 2), scale: 1)
@@ -124,5 +124,5 @@ func frameOrbits(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame 
                 ))
         }
     }
-    return finalizeFrame(dots: dots, rMin: o[.rMin])
+    return RawFrame(dots: dots, rMin: o[.rMin])
 }
