@@ -5,7 +5,8 @@
 // Created by persuara on 9/21/26
 //
 //  Renders the animated GIFs shown in the README — one per state, with the two
-//  tuned sizes (64 pt and 20 pt) side by side.
+//  tuned sizes (64 pt and 20 pt) side by side, plus `morph.gif`, which cycles
+//  through several states, each morphing seamlessly into the next.
 //
 //  Frames are computed OFFLINE and deterministically: each one is the engine's
 //  own geometry for an exact timestamp, drawn through the same
@@ -31,9 +32,9 @@ import UniformTypeIdentifiers
 
 /// Frames per second. GIF delays are whole centiseconds, so 25 fps (4 cs) is exact.
 let framesPerSecond = 25.0
-/// Length of one loop, in seconds of real time (before the preset's own speed-up).
-let loopSeconds = 4.0
-/// The first part of the loop cross-fades in from the moment just AFTER the loop
+/// Length of one loop of a single-state GIF, in seconds of real time.
+let stateLoopSeconds = 4.0
+/// The first part of every loop cross-fades in from the moment just AFTER the loop
 /// ends. These animations are not periodic (several unrelated frequencies run at
 /// once), so a raw loop would visibly jump; this hides the seam.
 let dissolveSeconds = 0.5
@@ -45,26 +46,77 @@ let background = Color(red: 13 / 255, green: 17 / 255, blue: 23 / 255)
 let tileSize = CGSize(width: 96, height: 64)
 let renderScale = 2.0
 
+/// The states `morph.gif` cycles through, and how long each is held before it
+/// morphs into the next, and how long that morph takes.
+let showcaseStates: [OrbState] = [.working, .searching, .connecting, .composing, .shaping, .breathing]
+let morphHoldSeconds = 0.6
+let morphSeconds = 0.9
+
+// MARK: - What a tile shows over time
+
+/// Both sizes of one orb at one instant.
+struct Tile {
+    var large: OrbFrame
+    var small: OrbFrame
+}
+
+/// A tile as a function of elapsed seconds.
+typealias TileProvider = (Double) -> Tile
+
+/// One state, steady.
+func steady(_ state: OrbState) -> TileProvider {
+    let large = Resolved(state: state, size: .px64)
+    let small = Resolved(state: state, size: .px20)
+    return { elapsed in
+        Tile(
+            large: large.mode.frame(size: 64, time: elapsed * large.speed, options: large.opts),
+            small: small.mode.frame(size: 20, time: elapsed * small.speed, options: small.opts))
+    }
+}
+
+/// `states` in a loop, each held for `hold` seconds and then morphed into the next
+/// over `morph` seconds. Periodic in WHICH state is showing; the animations
+/// themselves keep running, which is why the GIF still needs its seam dissolve.
+func morphing(_ states: [OrbState], hold: Double, morph: Double) -> (provider: TileProvider, loopSeconds: Double) {
+    let segment = hold + morph
+
+    /// The transition out of `state[index]`, whose pairing is fixed at the moment it starts.
+    func transition(_ segmentIndex: Int, size: OrbSize) -> ActiveTransition {
+        let from = states[segmentIndex % states.count]
+        let to = states[(segmentIndex + 1) % states.count]
+        return ActiveTransition(
+            from: .state(Resolved(state: from, size: size)), to: Resolved(state: to, size: size),
+            size: Double(size.points), startingAt: Double(segmentIndex) * segment + hold, speed: 1, duration: morph)
+    }
+
+    let provider: TileProvider = { elapsed in
+        let index = Int(elapsed / segment)
+        let local = elapsed - Double(index) * segment
+        let state = states[index % states.count]
+        if local < hold { return steady(state)(elapsed) }
+        // (a transition is cheap to build: ~0.1 ms)
+        return Tile(
+            large: transition(index, size: .px64).frame(at: elapsed, speed: 1),
+            small: transition(index, size: .px20).frame(at: elapsed, speed: 1))
+    }
+    return (provider, segment * Double(states.count))
+}
+
 // MARK: - Frame rendering
 
-/// One tile at `elapsed` seconds: both sizes of `state`, at the given opacity.
-private func drawOrbs(_ state: OrbState, elapsed: Double, opacity: Double, in context: GraphicsContext) {
+/// One tile, at the given opacity.
+private func draw(_ tile: Tile, opacity: Double, in context: GraphicsContext) {
     var context = context
     context.opacity = opacity
+    context.paint(tile.large, dark: true)
 
-    let large = Resolved(state: state, size: .px64)
-    context.paint(
-        large.mode.frame(size: 64, time: elapsed * large.speed, options: large.opts), dark: true)
-
-    let small = Resolved(state: state, size: .px20)
     var corner = context
     corner.translateBy(x: 64 + (tileSize.width - 64 - 20) / 2, y: (tileSize.height - 20) / 2)
-    corner.paint(
-        small.mode.frame(size: 20, time: elapsed * small.speed, options: small.opts), dark: true)
+    corner.paint(tile.small, dark: true)
 }
 
 @MainActor
-private func renderFrame(_ state: OrbState, index: Int, frameCount: Int) -> CGImage? {
+private func renderFrame(_ tiles: @escaping TileProvider, index: Int, loopSeconds: Double) -> CGImage? {
     let elapsed = Double(index) / framesPerSecond
     let dissolveFrames = Int(dissolveSeconds * framesPerSecond)
 
@@ -72,10 +124,10 @@ private func renderFrame(_ state: OrbState, index: Int, frameCount: Int) -> CGIm
         if index < dissolveFrames {
             // Start of the loop: fade the continuation of the END (t + loop) into the start.
             let weight = Double(index) / Double(dissolveFrames)
-            drawOrbs(state, elapsed: elapsed + loopSeconds, opacity: 1 - weight, in: context)
-            drawOrbs(state, elapsed: elapsed, opacity: weight, in: context)
+            draw(tiles(elapsed + loopSeconds), opacity: 1 - weight, in: context)
+            draw(tiles(elapsed), opacity: weight, in: context)
         } else {
-            drawOrbs(state, elapsed: elapsed, opacity: 1, in: context)
+            draw(tiles(elapsed), opacity: 1, in: context)
         }
     }
     .frame(width: tileSize.width, height: tileSize.height)
@@ -89,7 +141,7 @@ private func renderFrame(_ state: OrbState, index: Int, frameCount: Int) -> CGIm
 // MARK: - GIF encoding
 
 @MainActor
-private func writeGIF(for state: OrbState, to url: URL) throws {
+private func writeGIF(_ tiles: @escaping TileProvider, loopSeconds: Double, to url: URL) throws {
     let frameCount = Int(loopSeconds * framesPerSecond)
     guard
         let destination = CGImageDestinationCreateWithURL(
@@ -104,7 +156,7 @@ private func writeGIF(for state: OrbState, to url: URL) throws {
     let frameProperties =
         [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 1 / framesPerSecond]] as CFDictionary
     for index in 0..<frameCount {
-        guard let image = renderFrame(state, index: index, frameCount: frameCount) else {
+        guard let image = renderFrame(tiles, index: index, loopSeconds: loopSeconds) else {
             throw CocoaError(.fileWriteUnknown)
         }
         CGImageDestinationAddImage(destination, image, frameProperties)
@@ -127,18 +179,29 @@ private func writeGIF(for state: OrbState, to url: URL) throws {
 private func run() throws {
     let arguments = CommandLine.arguments
     guard arguments.count >= 2 else {
-        print("usage: render-gifs <output-directory> [state …]")
+        print("usage: render-gifs <output-directory> [state … | morph]")
         exit(2)
     }
     let outputDirectory = URL(fileURLWithPath: arguments[1], isDirectory: true)
     try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 
-    let requested = arguments.dropFirst(2).compactMap { OrbState(rawValue: $0) }
-    for state in requested.isEmpty ? OrbState.allCases : requested {
-        let url = outputDirectory.appendingPathComponent("\(state.rawValue).gif")
-        try writeGIF(for: state, to: url)
+    func report(_ name: String, _ url: URL) {
         let bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        print(String(format: "%-11@ %6.0f KB  %@", state.rawValue as NSString, Double(bytes) / 1024, url.lastPathComponent))
+        print(String(format: "%-11@ %6.0f KB  %@", name as NSString, Double(bytes) / 1024, url.lastPathComponent))
+    }
+
+    let requested = Array(arguments.dropFirst(2))
+    let everything = requested.isEmpty
+    for state in OrbState.allCases where everything || requested.contains(state.rawValue) {
+        let url = outputDirectory.appendingPathComponent("\(state.rawValue).gif")
+        try writeGIF(steady(state), loopSeconds: stateLoopSeconds, to: url)
+        report(state.rawValue, url)
+    }
+    if everything || requested.contains("morph") {
+        let url = outputDirectory.appendingPathComponent("morph.gif")
+        let cycle = morphing(showcaseStates, hold: morphHoldSeconds, morph: morphSeconds)
+        try writeGIF(cycle.provider, loopSeconds: cycle.loopSeconds, to: url)
+        report("morph", url)
     }
 }
 
