@@ -103,3 +103,24 @@ public enum OrbTheme: Sendable {
     case dark
     case light
 }
+
+/// What a `ThinkingOrb` does when its `state` changes.
+///
+///     ThinkingOrb(state: state)                            // morphs (the default)
+///     ThinkingOrb(state: state, transition: .morph(duration: 1.5))
+///     ThinkingOrb(state: state, transition: .none)         // switch instantly
+///
+/// A morph is seamless: every dot of the old state flows into a dot of the new
+/// one, changing position, size and ink as it goes, while both animations keep
+/// running. Where the two states have different numbers of dots, dots split off
+/// from — or merge into — their neighbours. Changing state again mid-morph
+/// starts the next morph from exactly what is on screen, so nothing jumps.
+///
+/// Nothing morphs on first appearance, when `size` changes, while the orb is
+/// `paused`, or with Reduce Motion on — those switch instantly.
+public enum OrbTransition: Sendable, Equatable {
+    /// Switch to the new state immediately.
+    case none
+    /// Morph into the new state over `duration` seconds.
+    case morph(duration: TimeInterval = 0.9)
+}
