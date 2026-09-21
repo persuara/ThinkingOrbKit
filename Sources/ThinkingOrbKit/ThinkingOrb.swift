@@ -39,12 +39,25 @@ enum OrbClock {
 /// It draws itself with a SwiftUI `Canvas` inside a `TimelineView`, so it needs
 /// no assets and pauses on its own while off-screen. With Reduce Motion on it
 /// shows one still frame.
+///
+/// Change `state` and the orb morphs seamlessly into the new one; see
+/// ``OrbTransition``.
 public struct ThinkingOrb: View {
     private let state: OrbState
     private let size: OrbSize
     private let theme: OrbTheme
     private let speed: Double
     private let paused: Bool
+    private let transition: OrbTransition
+
+    /// The state whose animation is on screen, or that a morph is heading for.
+    ///
+    /// It follows `state` one update late, on purpose: the update in which `state`
+    /// changes still draws the OLD orb, and `onChange` then starts the morph. Drawing
+    /// the new state straight away would flash it for a frame before the morph began.
+    @State private var displayed: OrbState
+    /// The morph in progress, if any.
+    @State private var inFlight: ActiveTransition?
 
     /// - Parameters:
     ///   - state: Which animation to show.
@@ -54,39 +67,50 @@ public struct ThinkingOrb: View {
     ///     pin the palette.
     ///   - speed: Animation speed multiplier on top of the preset's baked speed.
     ///   - paused: Freeze the animation on the current frame.
+    ///   - transition: How to change when `state` changes: morph seamlessly (the
+    ///     default) or switch instantly.
     public init(
         state: OrbState = .working,
         size: OrbSize = .px64,
         theme: OrbTheme = .auto,
         speed: Double = 1,
-        paused: Bool = false
+        paused: Bool = false,
+        transition: OrbTransition = .morph()
     ) {
         self.state = state
         self.size = size
         self.theme = theme
         self.speed = speed
         self.paused = paused
+        self.transition = transition
+        _displayed = State(initialValue: state)
     }
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public var body: some View {
-        let resolved = Resolved(state: state, size: size)
         let dark = theme.isDark(in: colorScheme)
 
         Group {
             if reduceMotion {
-                // reduced motion → one static, deterministic frame
-                orbCanvas(resolved, t: 0.6, dark: dark)
+                // reduced motion → one static, deterministic frame of the CURRENT state
+                let resolved = Resolved(state: state, size: size)
+                orbCanvas(resolved.mode.frame(size: Double(size.points), time: 0.6, options: resolved.opts), dark: dark)
             } else {
+                let resolved = Resolved(state: displayed, size: size)
+                let morph = inFlight
                 TimelineView(.animation(paused: paused)) { timeline in
+                    let elapsed = OrbClock.seconds(at: timeline.date)
                     // t = seconds · presetSpeed · userSpeed — the single number every
                     // mode animates from. At 60 fps t advances by
                     // (1/60)·presetSpeed·speed per frame; e.g. searching@64 gives
                     // 0.0336 per frame, since its preset speed is 2.015.
-                    let t = OrbClock.seconds(at: timeline.date) * resolved.speed * speed
-                    orbCanvas(resolved, t: t, dark: dark)
+                    let frame =
+                        morph?.frame(at: elapsed, speed: speed)
+                        ?? resolved.mode.frame(
+                            size: Double(size.points), time: elapsed * resolved.speed * speed, options: resolved.opts)
+                    orbCanvas(frame, dark: dark)
                 }
             }
         }
@@ -94,12 +118,52 @@ public struct ThinkingOrb: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(state.label)
         .accessibilityAddTraits(.isImage)
+        .onChange(of: state) { newState in
+            changeState(to: newState)
+        }
+        // a different size means different presets: the morph's dot pairing no longer applies
+        .onChange(of: size) { _ in
+            inFlight = nil
+        }
+        // Reduce Motion turning on mid-morph: settle on the current state
+        .onChange(of: reduceMotion) { _ in
+            inFlight = nil
+            displayed = state
+        }
     }
 
-    private func orbCanvas(_ resolved: Resolved, t: Double, dark: Bool) -> some View {
-        let side = Double(size.points)
-        return Canvas { context, _ in
-            context.paint(resolved.mode.frame(size: side, time: t, options: resolved.opts), dark: dark)
+    private func orbCanvas(_ frame: OrbFrame, dark: Bool) -> some View {
+        Canvas { context, _ in
+            context.paint(frame, dark: dark)
         }
+    }
+
+    /// `state` just changed: start a morph, or switch instantly.
+    private func changeState(to newState: OrbState) {
+        guard newState != displayed else { return }
+
+        guard case .morph(let duration) = transition, duration > 0, !reduceMotion, !paused else {
+            inFlight = nil
+            displayed = newState
+            return
+        }
+
+        let now = OrbClock.seconds(at: Date())
+        let source: ActiveTransition.Source
+        if let running = inFlight, running.progress(at: now) < 1 {
+            // interrupted mid-morph: start from exactly the picture on screen
+            source = .snapshot(running.rawFrame(at: now, speed: speed))
+        } else {
+            source = .state(Resolved(state: displayed, size: size))
+        }
+        inFlight = ActiveTransition(
+            from: source,
+            to: Resolved(state: newState, size: size),
+            size: Double(size.points),
+            startingAt: now,
+            speed: speed,
+            duration: duration
+        )
+        displayed = newState
     }
 }
