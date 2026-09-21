@@ -42,10 +42,19 @@ enum OrbClock {
 ///
 /// Change `state` and the orb morphs seamlessly into the new one; see
 /// ``OrbTransition``.
+///
+/// Pass `tint` to draw in a colour instead of gray:
+///
+///     ThinkingOrb(state: .searching, tint: .blue)
+///
+/// Depth is still shown by strength — near dots are the full tint, far dots fade
+/// toward the background — so it reads on light, dark and coloured backgrounds
+/// alike, and `theme` no longer matters.
 public struct ThinkingOrb: View {
     private let state: OrbState
     private let size: OrbSize
     private let theme: OrbTheme
+    private let tint: Color?
     private let speed: Double
     private let paused: Bool
     private let transition: OrbTransition
@@ -64,7 +73,10 @@ public struct ThinkingOrb: View {
     ///   - size: `.px64` or `.px20` (the two hand-tuned designs), or any custom
     ///     size such as `40`. See ``OrbSize`` for how other sizes are derived.
     ///   - theme: `.auto` follows the ambient color scheme; `.dark` / `.light`
-    ///     pin the palette.
+    ///     pin the palette. Ignored when `tint` is set.
+    ///   - tint: The ink colour. `nil` (the default) keeps the gray ink that
+    ///     follows `theme`. With a colour, dots are drawn in it, near ones strong
+    ///     and far ones faint, on any background — see the type's documentation.
     ///   - speed: Animation speed multiplier on top of the preset's baked speed.
     ///   - paused: Freeze the animation on the current frame.
     ///   - transition: How to change when `state` changes: morph seamlessly (the
@@ -73,6 +85,7 @@ public struct ThinkingOrb: View {
         state: OrbState = .working,
         size: OrbSize = .px64,
         theme: OrbTheme = .auto,
+        tint: Color? = nil,
         speed: Double = 1,
         paused: Bool = false,
         transition: OrbTransition = .morph()
@@ -80,6 +93,7 @@ public struct ThinkingOrb: View {
         self.state = state
         self.size = size
         self.theme = theme
+        self.tint = tint
         self.speed = speed
         self.paused = paused
         self.transition = transition
@@ -133,8 +147,9 @@ public struct ThinkingOrb: View {
     }
 
     private func orbCanvas(_ frame: OrbFrame, dark: Bool) -> some View {
-        Canvas { context, _ in
-            context.paint(frame, dark: dark)
+        let tint = tint
+        return Canvas { context, _ in
+            context.paint(frame, dark: dark, tint: tint)
         }
     }
 
