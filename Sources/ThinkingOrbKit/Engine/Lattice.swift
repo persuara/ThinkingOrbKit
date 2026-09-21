@@ -238,7 +238,7 @@ extension Move {
 ///     `scanMul` scales how fast the line sweeps relative to the spin.
 ///   • dimBase = 0.45: un-scanned dots are drawn at 45 % alpha, and alpha rises
 ///     to 1 where boost ≥ 1, so the meridian pops out of a dimmed globe.
-func frameGlobe(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
+func frameGlobe(size: Double, time t: Double, options o: ModeOpts) -> RawFrame {
     let spin = 0.5
     let radius = (size / 2) * 0.82
     let tilt = 0.4 + 0.06 * sin(t * 0.35)
@@ -278,7 +278,7 @@ func frameGlobe(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
                 ))
         }
     }
-    return finalizeFrame(dots: dots, rMin: o[.rMin])
+    return RawFrame(dots: dots, rMin: o[.rMin])
 }
 
 // MARK: - Rubik: bands twist in quarter turns, scramble → solve — solving
@@ -299,7 +299,7 @@ func frameGlobe(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
 ///
 /// CAMERA: yaw = 0.55·t, tilt = 0.35 + 0.1·sin(0.9t) (nods between 0.25–0.45).
 /// The projector scale is `R` = 0.82·(size/2), points are unit vectors.
-func frameRubik(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
+func frameRubik(size: Double, time t: Double, options o: ModeOpts) -> RawFrame {
     let R = (size / 2) * 0.82
     let pt = Projector(
         yaw: t * 0.55, tilt: 0.35 + 0.1 * sin(t * 0.9), center: SIMD2(repeating: size / 2), scale: R)
@@ -335,7 +335,7 @@ func frameRubik(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
                 ))
         }
     }
-    return finalizeFrame(dots: dots, rMin: o[.rMin])
+    return RawFrame(dots: dots, rMin: o[.rMin])
 }
 
 // MARK: - Wave: a waveform rolls through the rings — listening
@@ -376,7 +376,7 @@ func frameRubik(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
 /// ~15 % smaller than the other modes; the constant is 0.76 × 1.15 to make up
 /// for it. Depth uses the NOMINAL R, so it lands in ≈ [0.01, 0.99].
 /// CAMERA: slow yaw 0.18·t, fixed tilt 0.38.
-func frameWave(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
+func frameWave(size: Double, time t: Double, options o: ModeOpts) -> RawFrame {
     // 0.76 base × 1.15 — the undulation pulls the sphere inward, so wave read
     // ~15% smaller than the other lattice modes; scaled up to match them
     let R = (size / 2) * 0.874
@@ -410,5 +410,5 @@ func frameWave(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
                 ))
         }
     }
-    return finalizeFrame(dots: dots, rMin: o[.rMin])
+    return RawFrame(dots: dots, rMin: o[.rMin])
 }
