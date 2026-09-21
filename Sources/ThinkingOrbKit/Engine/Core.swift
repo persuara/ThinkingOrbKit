@@ -22,6 +22,8 @@
 //       bigger and darker, far dots smaller and lighter. That is the ONLY
 //       3D cue; there is no lighting, no perspective.
 //    4. `finalizeFrame` culls invisible dots, clamps radii, sorts far → near.
+//       (Modes hand back a `RawFrame`; `ModeKey.frame` finishes it. Morphing
+//       between states blends two RAW frames first — see Transition.swift.)
 //    5. `GraphicsContext.paint(_:dark:)` fills one flat circle per dot, in that order.
 //
 
@@ -66,6 +68,24 @@ struct Line: Sendable {
 struct OrbFrame: Sendable {
     var dots: [Dot]
     var lines: [Line]
+}
+
+/// What a mode produces, BEFORE `finalizeFrame` culls, clamps and sorts it.
+///
+/// The difference matters for morphing between states. Sorting reshuffles the
+/// dots every frame (depth changes as things spin), so a sorted frame has no
+/// stable "dot #17". A raw frame lists its dots in GENERATION order — orbit by
+/// orbit, ring by ring — which never changes, so dot #17 is the same dot in
+/// every frame and can be tracked and interpolated.
+///
+/// Invariant the morphing relies on: for a given mode and options, the number
+/// and order of raw dots does not depend on time. (Web used to skip a packet
+/// when its endpoints coincided; it now emits it invisibly instead.)
+struct RawFrame: Sendable {
+    var dots: [Dot]
+    var lines: [Line] = []
+    /// The mode's smallest allowed dot radius (`nil` = the default floor).
+    var rMin: Double? = nil
 }
 
 // MARK: - Scalar helpers
@@ -246,6 +266,11 @@ struct Projector: Sendable {
 ///           so near dots overdraw far ones — this is what sells the depth.
 ///           The sort must be STABLE (equal z keeps generation order); see
 ///           `sortedByDepth`.
+func finalizeFrame(_ raw: RawFrame) -> OrbFrame {
+    finalizeFrame(dots: raw.dots, lines: raw.lines, rMin: raw.rMin)
+}
+
+/// The same, from loose parts.
 func finalizeFrame(dots: [Dot], lines: [Line] = [], rMin: Double? = nil) -> OrbFrame {
     let floorR = rMin ?? 0.3
     var visible: [Dot] = []
