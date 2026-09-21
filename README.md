@@ -58,6 +58,7 @@ HStack {
 | `theme` | `.auto` | `.auto` follows the color scheme; `.dark` / `.light` pin it |
 | `speed` | `1` | multiplier on the preset's baked speed |
 | `paused` | `false` | freeze on the current frame |
+| `transition` | `.morph()` | what happens when `state` changes: morph seamlessly, or `.none` to switch instantly |
 
 | State | Animation |
 |---|---|
@@ -90,6 +91,32 @@ dot size and speed, not a scale factor. Other sizes are derived from them:
   these sizes are not hand-tuned: large orbs look sparser and chunkier than the
   64 pt design, tiny ones coarser. Sizes below 1 pt are raised to 1.
 
+### Morphing between states
+
+Change `state` and the orb morphs seamlessly into the new one:
+
+<p align="center">
+  <img src="docs/gifs/morph.gif" width="288" alt="An orb morphing from working to searching to connecting to composing to shaping to breathing, and round again">
+</p>
+
+```swift
+ThinkingOrb(state: state)                                    // morphs (the default)
+ThinkingOrb(state: state, transition: .morph(duration: 1.5)) // slower
+ThinkingOrb(state: state, transition: .none)                 // switch instantly
+```
+
+Every dot of the old state flows into a dot of the new one, changing position,
+size and ink on the way, while both animations keep running. States have
+different numbers of dots (24 up to 566), so where the counts differ, extra dots
+split off from — or merge into — their neighbours. Dots are paired by where they
+are on screen, so they travel short distances and the morph reads as a flow, not
+a scramble.
+
+Changing state again mid-morph starts the next one from exactly what is on
+screen, so nothing jumps. Nothing morphs on first appearance, when `size`
+changes, while the orb is `paused`, or with **Reduce Motion** on — those switch
+instantly.
+
 Behaviour worth knowing:
 
 - Every orb shares one clock, so several on screen stay in phase.
@@ -118,8 +145,9 @@ swift test
 TypeScript engine: every dot and line for 9 states × 2 sizes × 4 timestamps,
 plus each preset's resolved options. The tests require the Swift engine to match
 it to within 1e-4 (the file itself is rounded to 6 decimals). The other tests
-pin the worked examples written into the source comments, and check that the
-depth sort is stable.
+pin the worked examples written into the source comments, check that the depth
+sort is stable, and check that morphs are seamless: they begin and end on exactly
+the frames they connect, every dot is accounted for, and no dot ever jumps.
 
 The engine (`Sources/ThinkingOrbKit/Engine`) is internal on purpose. Only
 `ThinkingOrb`, `OrbState`, `OrbSize` and `OrbTheme` are public.
