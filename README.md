@@ -55,7 +55,8 @@ HStack {
 |---|---|---|
 | `state` | `.working` | which animation (table below) |
 | `size` | `.px64` | `.px64` (avatar) or `.px20` (inline) — the two hand-tuned designs — or any size, e.g. `size: 40` (see below) |
-| `theme` | `.auto` | `.auto` follows the color scheme; `.dark` / `.light` pin it |
+| `theme` | `.auto` | `.auto` follows the color scheme; `.dark` / `.light` pin it (ignored when `tint` is set) |
+| `tint` | `nil` | draw in this colour instead of gray (see below) |
 | `speed` | `1` | multiplier on the preset's baked speed |
 | `paused` | `false` | freeze on the current frame |
 | `transition` | `.morph()` | what happens when `state` changes: morph seamlessly, or `.none` to switch instantly |
@@ -117,6 +118,32 @@ screen, so nothing jumps. Nothing morphs on first appearance, when `size`
 changes, while the orb is `paused`, or with **Reduce Motion** on — those switch
 instantly.
 
+### Tint
+
+By default the ink is gray and follows `theme`. Pass a `tint` to draw in a colour instead:
+
+<p align="center">
+  <img src="docs/gifs/tint.png" width="380" alt="The composing orb in the default gray ink and in blue, orange, green and pink, on a white and on a dark background">
+</p>
+
+```swift
+ThinkingOrb(state: .composing, tint: .blue)
+ThinkingOrb(state: .searching, tint: Color("BrandAccent"))
+```
+
+Depth is still shown by strength: near dots are the full tint and far dots fade
+toward whatever is behind the orb. That works on light, dark and coloured
+backgrounds alike, so `theme` no longer matters.
+
+Under the hood the gray ink was always "black on light, white on dark" at a
+depth-driven opacity, and a tint just replaces that fixed colour. So
+`tint: .black` on white looks like the default light theme, and `tint: .white`
+on black looks like the default dark theme.
+
+Because strength is opacity, pick a colour with enough contrast against your
+background — a dark tint on a dark background will (rightly) be hard to see.
+A tint that is itself translucent stays translucent.
+
 Behaviour worth knowing:
 
 - Every orb shares one clock, so several on screen stay in phase.
@@ -146,8 +173,9 @@ TypeScript engine: every dot and line for 9 states × 2 sizes × 4 timestamps,
 plus each preset's resolved options. The tests require the Swift engine to match
 it to within 1e-4 (the file itself is rounded to 6 decimals). The other tests
 pin the worked examples written into the source comments, check that the depth
-sort is stable, and check that morphs are seamless: they begin and end on exactly
-the frames they connect, every dot is accounted for, and no dot ever jumps.
+sort is stable, check that a tint reproduces the default light and dark inks,
+and check that morphs are seamless: they begin and end on exactly the frames
+they connect, every dot is accounted for, and no dot ever jumps.
 
 The engine (`Sources/ThinkingOrbKit/Engine`) is internal on purpose. Only
 `ThinkingOrb`, `OrbState`, `OrbSize` and `OrbTheme` are public.
