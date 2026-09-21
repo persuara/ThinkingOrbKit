@@ -399,42 +399,65 @@ func radiusScale(size: Double, exponent pow: Double) -> Double {
 /// Note both land exactly on a .5 tie. `.rounded()` rounds ties away from zero,
 /// which for these non-negative values is the same as JavaScript's
 /// `Math.round` (ties toward +∞), so the result matches the web exactly.
-func inkColor(white: Double, alpha: Double, dark: Bool) -> Color {
+///
+/// TINTED INK. With a `tint`, the ink is that colour instead of gray:
+///
+///   color = tint, with opacity = clamp(alpha, 0, 1) · (1 − w)
+///
+/// Why (1 − w): a gray of value `w` on a white page is exactly BLACK at opacity
+/// (1 − w), and the mirrored gray on a black page is exactly WHITE at opacity
+/// (1 − w). So the gray ink was always "black on light / white on dark" at a
+/// depth-driven strength, and a tint simply replaces that fixed ink colour:
+///
+///   tint = .black on white  ≡  the default light theme
+///   tint = .white on black  ≡  the default dark theme
+///
+/// Near dots (small w) come out strong, far dots faint, on ANY background. The
+/// theme plays no part: the tint is the ink. Because the result is translucent
+/// it blends with whatever is behind the orb, unlike the opaque grays.
+///
+/// Example, w = 0.3, alpha = 1, tint = blue → blue at 70 % opacity.
+func inkColor(white: Double, alpha: Double, dark: Bool, tint: Color? = nil) -> Color {
     let w = min(1, max(0, white))
-    let g = ((dark ? 1 - w : w) * 255).rounded()
     // The engine can emit alpha slightly above 1 (weaving reaches 1.0148: the radial
     // weave pushes a dot past the sphere, so its depth exceeds 1). On the web CSS
     // `rgba()` clamps that silently; SwiftUI's behaviour above 1 is undocumented,
     // so clamp explicitly.
-    return Color(.sRGB, white: g / 255, opacity: min(1, max(0, alpha)))
+    let a = min(1, max(0, alpha))
+    if let tint {
+        return tint.opacity(a * (1 - w))
+    }
+    let g = ((dark ? 1 - w : w) * 255).rounded()
+    return Color(.sRGB, white: g / 255, opacity: a)
 }
 
 /// Painting belongs to the drawing surface, so it is a `GraphicsContext`
 /// method — inside `Canvas { context, _ in … }` a frame is drawn with
-/// `context.paint(frame, dark: dark)`.
+/// `context.paint(frame, dark: dark)`, or with a tint colour
+/// `context.paint(frame, dark: dark, tint: .blue)`.
 extension GraphicsContext {
     /// Fill pass: dots in the order given (already z-sorted by `finalizeFrame`).
     /// A dot is the circle inscribed in the square [x−r, x+r] × [y−r, y+r].
-    func paintDots(_ dots: [Dot], dark: Bool) {
+    func paintDots(_ dots: [Dot], dark: Bool, tint: Color? = nil) {
         for d in dots {
             let rect = CGRect(x: d.x - d.r, y: d.y - d.r, width: d.r * 2, height: d.r * 2)
-            fill(Path(ellipseIn: rect), with: .color(inkColor(white: d.white, alpha: d.a, dark: dark)))
+            fill(Path(ellipseIn: rect), with: .color(inkColor(white: d.white, alpha: d.a, dark: dark, tint: tint)))
         }
     }
 
     /// Stroke pass for edge-based modes. Runs before the dots so nodes sit on top.
-    func paintLines(_ lines: [Line], dark: Bool) {
+    func paintLines(_ lines: [Line], dark: Bool, tint: Color? = nil) {
         for l in lines {
             var path = Path()
             path.move(to: CGPoint(x: l.x1, y: l.y1))
             path.addLine(to: CGPoint(x: l.x2, y: l.y2))
-            stroke(path, with: .color(inkColor(white: l.white, alpha: l.a, dark: dark)), lineWidth: l.w)
+            stroke(path, with: .color(inkColor(white: l.white, alpha: l.a, dark: dark, tint: tint)), lineWidth: l.w)
         }
     }
 
     /// Paint a finished frame. Lines first, so nodes sit on top of their edges.
-    func paint(_ frame: OrbFrame, dark: Bool) {
-        if !frame.lines.isEmpty { paintLines(frame.lines, dark: dark) }
-        paintDots(frame.dots, dark: dark)
+    func paint(_ frame: OrbFrame, dark: Bool, tint: Color? = nil) {
+        if !frame.lines.isEmpty { paintLines(frame.lines, dark: dark, tint: tint) }
+        paintDots(frame.dots, dark: dark, tint: tint)
     }
 }
