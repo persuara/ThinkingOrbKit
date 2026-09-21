@@ -62,7 +62,7 @@ import simd
 ///     alpha  = endFade·(0.45 + 0.55·depth)
 ///   Ghost dots: radius 0.8·rs, white 0.78, alpha 0.1 + 0.22·depth.
 /// CAMERA: yaw = 0.4·t (a fairly quick spin), tilt 0.3.
-func frameBraid(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
+func frameBraid(size: Double, time t: Double, options o: ModeOpts) -> RawFrame {
     let R = (size / 2) * 0.76
     let pt = Projector(yaw: t * 0.4, tilt: 0.3, center: SIMD2(repeating: size / 2), scale: 1)
     let rs = radiusScale(size: size, exponent: o[.rsPow] ?? 0.6)
@@ -101,5 +101,5 @@ func frameBraid(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
                 ))
         }
     }
-    return finalizeFrame(dots: dots, rMin: o[.rMin])
+    return RawFrame(dots: dots, rMin: o[.rMin])
 }
