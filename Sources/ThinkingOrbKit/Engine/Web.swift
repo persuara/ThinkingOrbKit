@@ -85,7 +85,7 @@ import simd
 /// CAMERA: yaw 0.12·t, tilt 0.32. The projector scale is R = 0.8·(size/2)·spread
 /// so node vectors stay unit length and every distance above is in unit-sphere
 /// units, independent of size.
-func frameWeb(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
+func frameWeb(size: Double, time t: Double, options o: ModeOpts) -> RawFrame {
     let R = (size / 2) * 0.8 * (o[.spread] ?? 1)
     // note the projector carries the radius as its scale, so node vectors stay
     // unit-length and distances below are in unit-sphere space
@@ -152,7 +152,12 @@ func frameWeb(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
         let seg = floor(t * 0.55 + fs * 7.31)
         let a = Int(floor(hashD(seg, fs * 3.1 + 1.7) * Double(nodeN)))
         let b = Int(floor(hashD(seg, fs * 5.7 + 4.2) * Double(nodeN)))
-        if a == b { continue }
+        // A packet whose two random endpoints coincide has nowhere to run, so it rests
+        // for that leg. It is still EMITTED — invisibly, with alpha 0 — so the number
+        // and order of dots never depends on time. (The visible frame is unchanged:
+        // finalizeFrame culls alpha < 0.02 exactly as skipping did.) Morphing between
+        // states tracks dots by index and needs that stability.
+        let resting = a == b
         let f = frac(t * 0.55 + fs * 7.31)
         // lerp the two node vectors, then re-normalise onto the sphere ("nlerp")
         let along = mix(nodes[a], nodes[b], t: f)
@@ -164,9 +169,9 @@ func frameWeb(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
                 x: p.x, y: p.y, z: p.z,
                 r: (nodeR * 1.5 + nodeRDepth * depth) * rs,
                 white: 0.05,
-                a: 0.5 + 0.5 * depth
+                a: resting ? 0 : 0.5 + 0.5 * depth
             ))
     }
 
-    return finalizeFrame(dots: dots, lines: lines, rMin: o[.rMin])
+    return RawFrame(dots: dots, lines: lines, rMin: o[.rMin])
 }
