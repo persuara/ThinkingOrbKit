@@ -6,7 +6,8 @@
 //
 //  Renders the animated GIFs shown in the README — one per state, with the two
 //  tuned sizes (64 pt and 20 pt) side by side, plus `morph.gif`, which cycles
-//  through several states, each morphing seamlessly into the next.
+//  through several states, each morphing seamlessly into the next, and `tint.png`,
+//  a still of the optional tint colour on light and dark backgrounds.
 //
 //  Frames are computed OFFLINE and deterministically: each one is the engine's
 //  own geometry for an exact timestamp, drawn through the same
@@ -173,13 +174,50 @@ private func writeGIF(_ tiles: @escaping TileProvider, loopSeconds: Double, to u
     }
 }
 
+// MARK: - Tint preview (a still)
+
+/// `composing` (the boldest state) drawn in the default gray ink and in four tints,
+/// on a white and on a dark background. Each row's first cell is the default ink
+/// for that background, so the tints can be judged against it.
+@MainActor
+private func writeTintSheet(to url: URL) throws {
+    let tints: [Color?] = [nil, .blue, .orange, Color(red: 0.2, green: 0.8, blue: 0.4), .pink]
+    let rows: [(background: Color, dark: Bool)] = [(.white, false), (background, true)]
+    let resolved = Resolved(state: .composing, size: .px64)
+    let frame = resolved.mode.frame(size: 64, time: 1.4, options: resolved.opts)
+    let cell: CGFloat = 76
+
+    let grid = VStack(spacing: 0) {
+        ForEach(0..<rows.count, id: \.self) { row in
+            HStack(spacing: 0) {
+                ForEach(0..<tints.count, id: \.self) { column in
+                    Canvas { context, _ in
+                        context.paint(frame, dark: rows[row].dark, tint: tints[column])
+                    }
+                    .frame(width: 64, height: 64)
+                    .frame(width: cell, height: cell)
+                    .background(rows[row].background)
+                }
+            }
+        }
+    }
+    let renderer = ImageRenderer(content: grid)
+    renderer.scale = renderScale
+    guard
+        let image = renderer.cgImage,
+        let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)
+    else { throw CocoaError(.fileWriteUnknown) }
+    CGImageDestinationAddImage(destination, image, nil)
+    guard CGImageDestinationFinalize(destination) else { throw CocoaError(.fileWriteUnknown) }
+}
+
 // MARK: - Main
 
 @MainActor
 private func run() throws {
     let arguments = CommandLine.arguments
     guard arguments.count >= 2 else {
-        print("usage: render-gifs <output-directory> [state … | morph]")
+        print("usage: render-gifs <output-directory> [state … | morph | tint]")
         exit(2)
     }
     let outputDirectory = URL(fileURLWithPath: arguments[1], isDirectory: true)
@@ -202,6 +240,11 @@ private func run() throws {
         let cycle = morphing(showcaseStates, hold: morphHoldSeconds, morph: morphSeconds)
         try writeGIF(cycle.provider, loopSeconds: cycle.loopSeconds, to: url)
         report("morph", url)
+    }
+    if everything || requested.contains("tint") {
+        let url = outputDirectory.appendingPathComponent("tint.png")
+        try writeTintSheet(to: url)
+        report("tint", url)
     }
 }
 
