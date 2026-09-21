@@ -189,7 +189,7 @@ private let seg = hold + morphDur
 /// FINAL POSITION:  screen = centre + (x·pulse)·size, all dots z = 0,
 /// white = 0.1 (near-black ink), alpha 1. Since every z is equal, the stable
 /// sort in `finalizeFrame` keeps the dots in the order they were generated.
-func frameMorph(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
+func frameMorph(size: Double, time t: Double, options o: ModeOpts) -> RawFrame {
     let K = morphCycle.count
     let tc = t.truncatingRemainder(dividingBy: seg * Double(K))
     let k = Int(floor(tc / seg))
@@ -249,5 +249,5 @@ func frameMorph(size: Double, time t: Double, options o: ModeOpts) -> OrbFrame {
                 white: 0.1
             ))
     }
-    return finalizeFrame(dots: dots, rMin: o[.rMin])
+    return RawFrame(dots: dots, rMin: o[.rMin])
 }
