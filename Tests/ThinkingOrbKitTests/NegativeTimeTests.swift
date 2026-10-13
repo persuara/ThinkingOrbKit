@@ -30,6 +30,18 @@ struct NegativeTimeTests {
         }
     }
 
+    @Test("wrap stays strictly inside [0, period), even for tiny negatives that round frac up to 1")
+    func wrapIsHalfOpen() {
+        for period in [6.9, 12.96] {
+            for x in [-1e-300, -1e-18, -1e-12, -0.001, -period, -period - 1e-12, -3 * period + 1e-13, 0, 1e-18, period, 5 * period] {
+                let r = wrap(x, period)
+                #expect(r >= 0 && r < period, "wrap(\(x), \(period)) = \(r)")
+            }
+        }
+        #expect(abs(wrap(-0.5, 6.9) - 6.4) < 1e-12)
+        #expect(abs(wrap(7.5, 6.9) - 0.6) < 1e-12)
+    }
+
     @Test("the clock never reports time before its origin")
     func clockIsNeverNegative() {
         let early = Date(timeIntervalSinceNow: -0.05)
