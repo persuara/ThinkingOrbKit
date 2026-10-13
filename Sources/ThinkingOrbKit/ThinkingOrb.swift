@@ -25,8 +25,12 @@ import SwiftUI
 enum OrbClock {
     private static let origin = Date()
 
+    /// Never negative. `origin` is created lazily by the first read, which
+    /// happens while drawing a frame whose date the timeline stamped a moment
+    /// EARLIER — so that first reading would otherwise come out a few
+    /// milliseconds below zero.
     static func seconds(at date: Date) -> Double {
-        date.timeIntervalSince(origin)
+        max(0, date.timeIntervalSince(origin))
     }
 }
 

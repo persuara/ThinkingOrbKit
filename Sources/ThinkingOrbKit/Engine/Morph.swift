@@ -191,8 +191,8 @@ private let seg = hold + morphDur
 /// sort in `finalizeFrame` keeps the dots in the order they were generated.
 func frameMorph(size: Double, time t: Double, options o: ModeOpts) -> RawFrame {
     let K = morphCycle.count
-    let tc = t.truncatingRemainder(dividingBy: seg * Double(K))
-    let k = Int(floor(tc / seg))
+    let tc = wrap(t, seg * Double(K))
+    let k = min(K - 1, Int(floor(tc / seg)))
     let local = tc - Double(k) * seg
     let m = local > hold ? smoothE((local - hold) / morphDur) : 0
     let sprd = o[.spread] ?? 1

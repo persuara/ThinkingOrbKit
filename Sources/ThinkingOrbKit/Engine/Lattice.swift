@@ -94,7 +94,7 @@ private struct SolveCycle {
 
     init(time: Double, count: Int, slotDuration slotDur: Double, rest: Double) {
         let cyc = 2 * Double(count) * slotDur + rest
-        let tc = time.truncatingRemainder(dividingBy: cyc)
+        let tc = wrap(time, cyc)
         var amount = [Double](repeating: 0, count: count)
         var active = -1
         if tc < 2 * Double(count) * slotDur {

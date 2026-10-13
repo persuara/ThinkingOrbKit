@@ -99,6 +99,15 @@ func frac(_ x: Double) -> Double {
     x - floor(x)
 }
 
+/// `x` wrapped into [0, period) — a modulo that, like `frac`, wraps NEGATIVE
+/// numbers upward instead of returning them negative:
+///   wrap( 7.5, 6.9) = 0.6
+///   wrap(-0.5, 6.9) = 6.4   (`truncatingRemainder` gives −0.5)
+/// Use it wherever a cycle position becomes an array index.
+func wrap(_ x: Double, _ period: Double) -> Double {
+    period * frac(x / period)
+}
+
 /// Deterministic pseudo-random number in [0, 1) — the classic "GLSL sin hash".
 ///
 ///   hashD(a, b) = frac( sin(a·12.9898 + b·78.233) · 43758.5453 )
