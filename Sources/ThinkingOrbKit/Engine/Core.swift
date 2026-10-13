@@ -104,8 +104,14 @@ func frac(_ x: Double) -> Double {
 ///   wrap( 7.5, 6.9) = 0.6
 ///   wrap(-0.5, 6.9) = 6.4   (`truncatingRemainder` gives −0.5)
 /// Use it wherever a cycle position becomes an array index.
+///
+/// The result is strictly below `period`. `frac` of a tiny negative number
+/// rounds up to exactly 1.0 (frac(−1e-18) = 1), which would make this return
+/// `period` itself — one past the end of a cycle. On a circle `period` and 0 are
+/// the same phase, so that case maps to 0.
 func wrap(_ x: Double, _ period: Double) -> Double {
-    period * frac(x / period)
+    let r = period * frac(x / period)
+    return r < period ? r : 0
 }
 
 /// Deterministic pseudo-random number in [0, 1) — the classic "GLSL sin hash".
